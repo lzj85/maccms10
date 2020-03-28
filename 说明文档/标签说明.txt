@@ -1134,6 +1134,9 @@ cachetime自定义缓存时间单位秒
 访问页面触发定时任务，建议放到首页底部；  由于入口文件名可变，默认是api.php，如需修改请自定义 data-file="xxx.php"
 <span style="display: none;" class="mac_timming" data-file="" ></span>
 
+网址导航来路记录统计；建议放到首页底部。来路域名必须和网址导航里的跳转url里的一致。
+<span style="display: none;" class="mac_referer" data-file="" ></span>
+
 自动获取短网址连接
 <input type="text" name="shorten" class="mac_shorten" />
 短网址自定义用法，js来获取

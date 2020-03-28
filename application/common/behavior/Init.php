@@ -78,7 +78,8 @@ class Init
         }
         config('pathinfo_depr',$config['app']['pathinfo_depr']);
 
-        config('cache.expire', $config['app']['cache_time'] * 60);
+        config('cache.expire', intval($config['app']['cache_time']) );
+
         if($config['app']['cache_type'] =='0' || $config['app']['cache_type'] =='file'){
             config('cache.type','file');
         }
