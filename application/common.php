@@ -900,7 +900,7 @@ function mac_unescape($str)
 /*特殊字段的值转换*/
 function mac_get_mid_code($data)
 {
-    $arr = [1=>'vod',2=>'art',3=>'topic',4=>'commment',5=>'gbook',6=>'user',7=>'label',8=>'actor',9=>'role',10=>'plot',11=>'website'];
+    $arr = [1=>'vod',2=>'art',3=>'topic',4=>'comment',5=>'gbook',6=>'user',7=>'label',8=>'actor',9=>'role',10=>'plot',11=>'website'];
     return $arr[$data];
 }
 function mac_get_mid_text($data)
