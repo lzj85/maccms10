@@ -13,6 +13,7 @@ class Base extends All
         parent::__construct();
         $this->check_site_status();
         $this->label_maccms();
+        $this->check_browser_jump();
         $this->label_user();
     }
 
@@ -49,6 +50,16 @@ class Base extends All
         }
     }
 
+    protected function check_browser_jump()
+    {
+        if (ENTRANCE=='index' && $GLOBALS['config']['app']['browser_junmp'] == 1) {
+            $agent = $_SERVER['HTTP_USER_AGENT'];
+            if(strpos($agent, 'QQ/')||strpos($agent, 'MicroMessenger')!==false){
+                echo $this->fetch('public/browser');
+                die;
+            }
+        }
+    }
     protected function check_user_popedom($type_id,$popedom,$param=[],$flag='',$info=[],$trysee=0)
     {
         $user = $GLOBALS['user'];
@@ -58,40 +69,39 @@ class Base extends All
         if(strpos(','.$group['group_type'],','.$type_id.',')!==false && !empty($group['group_popedom'][$type_id][$popedom])!==false){
             $res = true;
         }
-
-        if(in_array($flag,['art','play','down'])){
-            if($flag=='art') {
-                $points = $info['art_points_detail'];
-                if($GLOBALS['config']['user']['art_points_type']=='1'){
-                    $points = $info['art_points'];
-                }
-            }
-            else{
-                $points = $info['vod_points_'.$flag];
-                if($GLOBALS['config']['user']['vod_points_type']=='1'){
-                    $points = $info['vod_points'];
-                }
-            }
+        $pre = $flag;
+        $col = 'detail';
+        if($flag=='play' || $flag=='down'){
+            $pre = 'vod';
+            $col = $flag;
         }
 
+        if(in_array($pre,['art','vod','actor','website'])){
+            $points = $info[$pre.'_points_'.$col];
+            if($GLOBALS['config']['user'][$pre.'_points_type']=='1'){
+                $points = $info[$pre.'_points'];
+            }
+        }
 
         if($GLOBALS['config']['user']['status']==0){
 
         }
-        elseif($popedom==2 && $flag=='art'){
+        elseif($popedom==2 && in_array($pre,['art','actor','website'])){
+
             if($res===false && (empty($group['group_popedom'][$type_id][2]) || $trysee==0)){
                 return ['code'=>3001,'msg'=>'您没有权限访问此数据，请升级会员','trysee'=>0];
             }
             elseif($group['group_id']<3 && $points>0  ){
+                $mid = mac_get_mid($pre);
                 $where=[];
-                $where['ulog_mid'] = 2;
+                $where['ulog_mid'] = $mid;
                 $where['ulog_type'] = 1;
                 $where['ulog_rid'] = $param['id'];
                 $where['ulog_sid'] = $param['page'];
                 $where['ulog_nid'] = 0;
                 $where['user_id'] = $user['user_id'];
                 $where['ulog_points'] = $points;
-                if($GLOBALS['config']['user']['art_points_type']=='1'){
+                if($GLOBALS['config']['user'][$pre.'_points_type']=='1'){
                     $where['ulog_sid'] = 0;
                 }
                 $res = model('Ulog')->infoData($where);
@@ -172,7 +182,11 @@ class Base extends All
                     }
                     $res = model('Ulog')->infoData($where);
 
-                    if($res['code'] == 1) {
+
+                    if(2 == 1) {
+
+                    }
+                    elseif($points>0 && $res['code'] == 1) {
 
                     }
                     elseif( $group['group_id'] <=2 && $points <= intval($user['user_points']) ){
@@ -181,6 +195,7 @@ class Base extends All
                     elseif( $group['group_id'] <3 && $points > intval($user['user_points']) ){
                         return ['code'=>5002,'msg'=>'对不起,观看此页面数据需要[' . $points . ']积分，您还剩下[' . $user['user_points'] . ']积分，请先充值！','trysee'=>$trysee];
                     }
+
                 }
             }
         }

@@ -139,6 +139,7 @@ class Vod extends Base {
         $not = $lp['not'];
         $cachetime = $lp['cachetime'];
         $isend = $lp['isend'];
+        $plot = $lp['plot'];
 
         $page = 1;
         $where=[];
@@ -403,6 +404,10 @@ class Vod extends Base {
         if(!empty($director)) {
             $where['vod_director'] = ['like',mac_like_arr($director),'OR'];
         }
+        if(in_array($plot,['0','1'])){
+            $where['vod_plot'] = $plot;
+        }
+
         if(defined('ENTRANCE') && ENTRANCE == 'index' && $GLOBALS['config']['app']['popedom_filter'] ==1){
             $type_ids = mac_get_popedom_filter($GLOBALS['user']['group']['group_type']);
             if(!empty($type_ids)){
@@ -482,6 +487,9 @@ class Vod extends Base {
             if (!empty($info['vod_down_from'])) {
                 $info['vod_down_list'] = mac_play_list($info['vod_down_from'], $info['vod_down_url'], $info['vod_down_server'], $info['vod_down_note'], 'down');
             }
+            if (!empty($info['vod_plot_name'])) {
+                $info['vod_plot_list'] = mac_plot_list($info['vod_plot_name'], $info['vod_plot_detail']);
+            }
 
             //分类
             if (!empty($info['type_id'])) {
@@ -526,6 +534,18 @@ class Vod extends Base {
             $data['vod_letter'] = strtoupper(substr($data['vod_en'],0,1));
         }
 
+        if(!empty($data['vod_content'])) {
+            $pattern_src = '/<img[\s\S]*?src\s*=\s*[\"|\'](.*?)[\"|\'][\s\S]*?>/';
+            @preg_match_all($pattern_src, $data['vod_content'], $match_src1);
+            if (!empty($match_src1)) {
+                foreach ($match_src1[1] as $v1) {
+                    $v2 = str_replace($GLOBALS['config']['upload']['protocol'] . ':', 'mac:', $v1);
+                    $data['vod_content'] = str_replace($v1, $v2, $data['vod_content']);
+                }
+            }
+            unset($match_src1);
+        }
+
         if(empty($data['vod_blurb'])){
             $data['vod_blurb'] = mac_substring( strip_tags($data['vod_content']) ,100);
         }
@@ -562,6 +582,16 @@ class Vod extends Base {
             $data['vod_down_server']='';
             $data['vod_down_note']='';
             $data['vod_down_url']='';
+        }
+
+        if(!empty($data['vod_plot_name'])) {
+            $data['vod_plot'] = 1;
+            $data['vod_plot_name'] = join('$$$', $data['vod_plot_name']);
+            $data['vod_plot_detail'] = join('$$$', $data['vod_plot_detail']);
+        }else{
+            $data['vod_plot'] = 0;
+            $data['vod_plot_name']='';
+            $data['vod_plot_detail']='';
         }
 
         if($data['uptime']==1){
@@ -611,15 +641,13 @@ class Vod extends Base {
         return ['code'=>1,'msg'=>'删除成功'];
     }
 
-    public function fieldData($where,$col,$val)
+    public function fieldData($where,$update)
     {
-        if(!isset($col) || !isset($val)){
+        if(!is_array($update)){
             return ['code'=>1001,'msg'=>'参数错误'];
         }
 
-        $data = [];
-        $data[$col] = $val;
-        $res = $this->allowField(true)->where($where)->update($data);
+        $res = $this->allowField(true)->where($where)->update($update);
         if($res===false){
             return ['code'=>1001,'msg'=>'设置失败：'.$this->getError() ];
         }

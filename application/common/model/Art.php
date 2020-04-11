@@ -209,7 +209,7 @@ class Art extends Base {
                 $type_list = model('Type')->getCache('type_list');
                 $type_info = $type_list[$type];
                 $flag='type';
-                if($pageurl == 'vod/show'){
+                if($pageurl == 'art/show'){
                     $flag='show';
                 }
                 $pageurl = mac_url_type($type_info,$param,$flag);
@@ -449,16 +449,21 @@ class Art extends Base {
             $data['art_letter'] = strtoupper(substr($data['art_en'],0,1));
         }
 
-        if(!empty($data['art_content'])){
-            $data['art_content'] = join('$$$',$data['art_content']);
-            $data['art_title'] = join('$$$',$data['art_title']);
-            $data['art_note'] = join('$$$',$data['art_note']);
-        }
-        if(empty($data['art_pic']) && !empty($data['art_content'])){
+        if(!empty($data['art_content'])) {
+            $data['art_content'] = join('$$$', $data['art_content']);
+            $data['art_title'] = join('$$$', $data['art_title']);
+            $data['art_note'] = join('$$$', $data['art_note']);
+
             $pattern_src = '/<img[\s\S]*?src\s*=\s*[\"|\'](.*?)[\"|\'][\s\S]*?>/';
-            $pma = @preg_match_all($pattern_src, $data['art_content'], $match_src1);
-            if(!empty($match_src1)){
-                $data['art_pic'] = (string)$match_src1[1][0];
+            @preg_match_all($pattern_src, $data['art_content'], $match_src1);
+            if (!empty($match_src1)) {
+                foreach ($match_src1[1] as $v1) {
+                    $v2 = str_replace($GLOBALS['config']['upload']['protocol'] . ':', 'mac:', $v1);
+                    $data['art_content'] = str_replace($v1, $v2, $data['art_content']);
+                }
+                if (empty($data['art_pic'])) {
+                    $data['art_pic'] = (string)$match_src1[1][0];
+                }
             }
             unset($match_src1);
         }
@@ -466,7 +471,6 @@ class Art extends Base {
         if(empty($data['art_blurb'])){
             $data['art_blurb'] = mac_substring( str_replace('$$$','', strip_tags($data['art_content'])),100);
         }
-
 
         if($data['uptime']==1){
             $data['art_time'] = time();
@@ -515,15 +519,12 @@ class Art extends Base {
         return ['code'=>1,'msg'=>'删除成功'];
     }
 
-    public function fieldData($where,$col,$val)
+    public function fieldData($where,$update)
     {
-        if(!isset($col) || !isset($val)){
+        if(!is_array($update)){
             return ['code'=>1001,'msg'=>'参数错误'];
         }
-
-        $data = [];
-        $data[$col] = $val;
-        $res = $this->allowField(true)->where($where)->update($data);
+        $res = $this->allowField(true)->where($where)->update($update);
         if($res===false){
             return ['code'=>1001,'msg'=>'设置失败：'.$this->getError() ];
         }

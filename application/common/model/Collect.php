@@ -80,6 +80,7 @@ class Collect extends Base {
         }
         return ['code'=>1,'msg'=>'ok'];
     }
+
     public function vod($param)
     {
         if($param['type'] == '1'){
@@ -115,6 +116,10 @@ class Collect extends Base {
         return $this->role_json($param);
     }
 
+    public function website($param)
+    {
+        return $this->website_json($param);
+    }
 
     public function vod_xml_replace($url)
     {
@@ -207,6 +212,7 @@ class Collect extends Base {
             $array_data[$key]['vod_id'] = (string)$video->id;
             //$array_data[$key]['type_id'] = (string)$video->tid;
             $array_data[$key]['vod_name'] = (string)$video->name;
+            $array_data[$key]['vod_sub'] = (string)$video->subname;
             $array_data[$key]['vod_remarks'] = (string)$video->note;
             $array_data[$key]['type_name'] = (string)$video->type;
             $array_data[$key]['vod_pic'] = (string)$video->pic;
@@ -393,6 +399,8 @@ class Collect extends Base {
 
         $config = config('maccms.collect');
         $config = $config['vod'];
+        $players = config('vodplayer');
+        $downers = config('voddowner');
 
         $type_list = model('Type')->getCache('type_list');
         $filter_arr = explode(',',$config['filter']);
@@ -423,7 +431,7 @@ class Collect extends Base {
                         $v[$k2] = strip_tags($v2);
                     }
                 }
-
+                $v['vod_name'] = trim($v['vod_name']);
                 $v['type_id_1'] = intval($type_list[$v['type_id']]['type_pid']);
                 $v['vod_en'] = Pinyin::get($v['vod_name']);
                 $v['vod_letter'] = strtoupper(substr($v['vod_en'],0,1));
@@ -460,10 +468,18 @@ class Collect extends Base {
                 $v['vod_class'] = mac_format_text($v['vod_class']);
                 $v['vod_tag'] = mac_format_text($v['vod_tag']);
 
+                $v['vod_plot_name'] = (string)$v['vod_plot_name'];
+                $v['vod_plot_detail'] = (string)$v['vod_plot_detail'];
+
+                if(!empty($v['vod_plot_name'])){
+                    $v['vod_plot_name'] = trim($v['vod_plot_name'],'$$$');
+                }
+                if(!empty($v['vod_plot_detail'])){
+                    $v['vod_plot_detail'] = trim($v['vod_plot_detail'],'$$$');
+                }
                 if(empty($v['vod_isend']) && !empty($v['vod_serial'])){
                     $v['vod_isend'] = 0;
                 }
-
                 if($config['hits_start']>0 && $config['hits_end']>0) {
                     $v['vod_hits'] = rand($config['hits_start'], $config['hits_end']);
                     $v['vod_hits_day'] = rand($config['hits_start'], $config['hits_end']);
@@ -545,44 +561,76 @@ class Collect extends Base {
                 $cj_down_url_arr = explode('$$$',$v['vod_down_url']);
                 $cj_down_server_arr = explode('$$$',$v['vod_down_server']);
                 $cj_down_note_arr = explode('$$$',$v['vod_down_note']);
+
+
+                $collect_filter=[];
                 foreach($cj_play_from_arr as $kk=>$vv){
                     if(empty($vv)){
                         unset($cj_play_from_arr[$kk]);
+                        unset($cj_play_url_arr[$kk]);
+                        unset($cj_play_server_arr[$kk]);
+                        unset($cj_play_note_arr[$kk]);
                         continue;
                     }
+
+                    if(empty($players[$vv])){
+                        unset($cj_play_from_arr[$kk]);
+                        unset($cj_play_url_arr[$kk]);
+                        unset($cj_play_server_arr[$kk]);
+                        unset($cj_play_note_arr[$kk]);
+                        continue;
+                    }
+
                     $cj_play_url_arr[$kk] = rtrim($cj_play_url_arr[$kk],'#');
                     $cj_play_server_arr[$kk] = $cj_play_server_arr[$kk];
                     $cj_play_note_arr[$kk] = $cj_play_note_arr[$kk];
+
+                    if($param['filter'] > 0){
+                        if(strpos(','.$param['filter_from'].',',$vv)!==false) {
+                            $collect_filter['play'][$param['filter']]['cj_play_from_arr'][$kk] = $vv;
+                            $collect_filter['play'][$param['filter']]['cj_play_url_arr'][$kk] = $cj_play_url_arr[$kk];
+                            $collect_filter['play'][$param['filter']]['cj_play_server_arr'][$kk] = $cj_play_server_arr[$kk];
+                            $collect_filter['play'][$param['filter']]['cj_play_note_arr'][$kk] = $cj_play_note_arr[$kk];
+                        }
+                    }
                 }
                 foreach($cj_down_from_arr as $kk=>$vv){
                     if(empty($vv)){
                         unset($cj_down_from_arr[$kk]);
+                        unset($cj_down_url_arr[$kk]);
+                        unset($cj_down_server_arr[$kk]);
+                        unset($cj_down_note_arr[$kk]);
                         continue;
                     }
+                    if(empty($downers[$vv])){
+                        unset($cj_down_from_arr[$kk]);
+                        unset($cj_down_url_arr[$kk]);
+                        unset($cj_down_server_arr[$kk]);
+                        unset($cj_down_note_arr[$kk]);
+                        continue;
+                    }
+
                     $cj_down_url_arr[$kk] = rtrim($cj_down_url_arr[$kk]);
                     $cj_down_server_arr[$kk] = $cj_down_server_arr[$kk];
                     $cj_down_note_arr[$kk] = $cj_down_note_arr[$kk];
+
+                    if($param['filter'] > 0){
+                        if(strpos(','.$param['filter_from'].',',$vv)!==false) {
+                            $collect_filter['down'][$param['filter']]['cj_down_from_arr'][$kk] = $vv;
+                            $collect_filter['down'][$param['filter']]['cj_down_url_arr'][$kk] = $cj_down_url_arr[$kk];
+                            $collect_filter['down'][$param['filter']]['cj_down_server_arr'][$kk] = $cj_down_server_arr[$kk];
+                            $collect_filter['down'][$param['filter']]['cj_down_note_arr'][$kk] = $cj_down_note_arr[$kk];
+                        }
+                    }
                 }
-                $v['vod_play_from'] = join('$$$',$cj_play_from_arr);
-                $v['vod_play_url'] = join('$$$',$cj_play_url_arr);
-                $v['vod_play_server'] = join('$$$',$cj_play_server_arr);
-                $v['vod_play_note'] = join('$$$',$cj_play_note_arr);
-                $v['vod_down_from'] = join('$$$',$cj_down_from_arr);
-                $v['vod_down_url'] = join('$$$',$cj_down_url_arr);
-                $v['vod_down_server'] = join('$$$',$cj_down_server_arr);
-                $v['vod_down_note'] = join('$$$',$cj_down_note_arr);
-
-                if(empty($v['vod_play_from'])) $v['vod_play_from']='';
-                if(empty($v['vod_play_url'])) $v['vod_play_url']='';
-                if(empty($v['vod_play_server'])) $v['vod_play_server']='';
-                if(empty($v['vod_play_note'])) $v['vod_play_note']='';
-
-                if(empty($v['vod_down_from'])) $v['vod_down_from']='';
-                if(empty($v['vod_down_url'])) $v['vod_down_url']='';
-                if(empty($v['vod_down_server'])) $v['vod_down_server']='';
-                if(empty($v['vod_down_note'])) $v['vod_down_note']='';
-
-
+                $v['vod_play_from'] = (string)join('$$$',$cj_play_from_arr);
+                $v['vod_play_url'] = (string)join('$$$',$cj_play_url_arr);
+                $v['vod_play_server'] = (string)join('$$$',$cj_play_server_arr);
+                $v['vod_play_note'] = (string)join('$$$',$cj_play_note_arr);
+                $v['vod_down_from'] = (string)join('$$$',$cj_down_from_arr);
+                $v['vod_down_url'] = (string)join('$$$',$cj_down_url_arr);
+                $v['vod_down_server'] = (string)join('$$$',$cj_down_server_arr);
+                $v['vod_down_note'] = (string)join('$$$',$cj_down_note_arr);
 
                 if($blend===false){
                     $info = model('Vod')->where($where)->find();
@@ -596,16 +644,34 @@ class Collect extends Base {
                         ->find();
                 }
 
-                if (!$info) {
-                    $tmp = $this->syncImages($config['pic'],$v['vod_pic'],'vod');
-                    $v['vod_pic'] = (string)$tmp['pic'];
-                    $msg = $tmp['msg'];
-                    $res = model('Vod')->insert($v);
-                    if($res===false){
 
+                if (!$info) {
+
+                    if($param['opt'] == 2){
+                        $des= '数据操作没有勾选新增，跳过。';
                     }
-                    $color ='green';
-                    $des= '新加入库，成功ok。';
+                    else {
+                        if ($param['filter'] == 1 || $param['filter'] == 2) {
+                            $v['vod_play_from'] = (string)join('$$$', $collect_filter['play'][$param['filter']]['cj_play_from_arr']);
+                            $v['vod_play_url'] = (string)join('$$$', $collect_filter['play'][$param['filter']]['cj_play_url_arr']);
+                            $v['vod_play_server'] = (string)join('$$$', $collect_filter['play'][$param['filter']]['cj_play_server_arr']);
+                            $v['vod_play_note'] = (string)join('$$$', $collect_filter['play'][$param['filter']]['cj_play_note_arr']);
+                            $v['vod_down_from'] = (string)join('$$$', $collect_filter['down'][$param['filter']]['cj_down_from_arr']);
+                            $v['vod_down_url'] = (string)join('$$$', $collect_filter['down'][$param['filter']]['cj_down_url_arr']);
+                            $v['vod_down_server'] = (string)join('$$$', $collect_filter['down'][$param['filter']]['cj_down_server_arr']);
+                            $v['vod_down_note'] = (string)join('$$$', $collect_filter['down'][$param['filter']]['cj_down_note_arr']);
+                        }
+
+                        $tmp = $this->syncImages($config['pic'], $v['vod_pic'], 'vod');
+                        $v['vod_pic'] = (string)$tmp['pic'];
+                        $msg = $tmp['msg'];
+                        $res = model('Vod')->insert($v);
+                        if ($res === false) {
+
+                        }
+                        $color = 'green';
+                        $des = '新加入库，成功ok。';
+                    }
                 } else {
                     if(empty($config['uprule'])){
                         $des = '没有设置任何二次更新项目，跳过。';
@@ -613,11 +679,25 @@ class Collect extends Base {
                     elseif ($info['vod_lock'] == 1) {
                         $des = '数据已经锁定，跳过。';
                     }
+                    elseif($param['opt'] == 1){
+                        $des= '数据操作没有勾选更新，跳过。';
+                    }
                     else {
                         unset($v['vod_time_add']);
 
                         $update = [];
                         $ec=false;
+
+                        if($param['filter'] ==1 || $param['filter']==3){
+                            $cj_play_from_arr = $collect_filter['play'][$param['filter']]['cj_play_from_arr'];
+                            $cj_play_url_arr = $collect_filter['play'][$param['filter']]['cj_play_url_arr'];
+                            $cj_play_server_arr = $collect_filter['play'][$param['filter']]['cj_play_server_arr'];
+                            $cj_play_note_arr = $collect_filter['play'][$param['filter']]['cj_play_note_arr'];
+                            $cj_down_from_arr = $collect_filter['down'][$param['filter']]['cj_down_from_arr'];
+                            $cj_down_url_arr = $collect_filter['down'][$param['filter']]['cj_down_url_arr'];
+                            $cj_down_server_arr = $collect_filter['down'][$param['filter']]['cj_down_server_arr'];
+                            $cj_down_note_arr = $collect_filter['down'][$param['filter']]['cj_down_note_arr'];
+                        }
 
                         if (strpos(',' . $config['uprule'], 'a')!==false && !empty($v['vod_play_from'])) {
                             $old_play_from = $info['vod_play_from'];
@@ -656,6 +736,14 @@ class Collect extends Base {
                                     } else {
                                         $color = 'green';
                                         $des .= '播放组(' . $cj_play_from . ')，更新ok。';
+                                        if ($config['urlrole'] == 1) {
+                                            $tmp1 = explode('#',$arr1[$play_key]);
+                                            $tmp2 = explode('#',$cj_play_url);
+                                            $tmp1 = array_merge($tmp1,$tmp2);
+                                            $tmp1 = array_unique($tmp1);
+                                            $cj_play_url = join('#',$tmp1);
+                                            unset($tmp1,$tmp2);
+                                        }
                                         $arr1[$play_key] = $cj_play_url;
                                         $ec=true;
                                     }
@@ -789,7 +877,11 @@ class Collect extends Base {
                         if (strpos(',' . $config['uprule'], 'v')!==false && !empty($v['vod_isend']) && $v['vod_isend']!=$info['vod_isend']) {
                             $update['vod_isend'] = $v['vod_isend'];
                         }
-
+                        if (strpos(',' . $config['uprule'], 'w')!==false && !empty($v['vod_plot_name']) && $v['vod_plot_name']!=$info['vod_plot_name']) {
+                            $update['vod_plot'] = 1;
+                            $update['vod_plot_name'] = $v['vod_plot_name'];
+                            $update['vod_plot_detail'] = $v['vod_plot_detail'];
+                        }
 
                         if(count($update)>0){
                             $update['vod_time'] = time();
@@ -862,7 +954,6 @@ class Collect extends Base {
             }
         }
     }
-
 
     public function art_json($param)
     {
@@ -972,7 +1063,7 @@ class Collect extends Base {
                         $v[$k2] = strip_tags($v2);
                     }
                 }
-
+                $v['art_name'] = trim($v['art_name']);
                 $v['type_id_1'] = intval($type_list[$v['type_id']]['type_pid']);
                 $v['art_en'] = Pinyin::get($v['art_name']);
                 $v['art_letter'] = strtoupper(substr($v['art_en'],0,1));
@@ -1185,7 +1276,6 @@ class Collect extends Base {
         }
     }
 
-
     public function actor_json($param)
     {
         $url_param = [];
@@ -1207,7 +1297,8 @@ class Collect extends Base {
         else{
             $url .='&';
         }
-        $html = mac_curl_get($url) . base64_decode($param['param']);
+        $url .= http_build_query($url_param).base64_decode($param['param']);
+        $html = mac_curl_get($url);
         if(empty($html)){
             return ['code'=>1001, 'msg'=>'连接API资源库失败，通常为服务器网络不稳定或禁用了采集'];
         }
@@ -1224,14 +1315,34 @@ class Collect extends Base {
         $array_page['recordcount'] = $json['total'];
         $array_page['url'] = $url;
 
+        $type_list = model('Type')->getCache('type_list');
+        $bind_list = config('bind');
+
         $key = 0;
         $array_data = [];
         foreach($json['list'] as $key=>$v){
             $array_data[$key] = $v;
+            $bind_key = $param['cjflag'] .'_'.$v['type_id'];
+            if($bind_list[$bind_key] >0){
+                $array_data[$key]['type_id'] = $bind_list[$bind_key];
+            }
+            else{
+                $array_data[$key]['type_id'] = 0;
+            }
         }
 
+        $array_type = [];
+        $key=0;
+        //分类列表
+        if($param['ac'] == 'list'){
+            foreach($json['class'] as $k=>$v){
+                $array_type[$key]['type_id'] = $v['type_id'];
+                $array_type[$key]['type_name'] = $v['type_name'];
+                $key++;
+            }
+        }
 
-        $res = ['code'=>1, 'msg'=>'ok', 'page'=>$array_page, 'data'=>$array_data ];
+        $res = ['code'=>1, 'msg'=>'ok', 'page'=>$array_page, 'type'=>$array_type, 'data'=>$array_data ];
         return $res;
     }
 
@@ -1244,6 +1355,7 @@ class Collect extends Base {
         $config = config('maccms.collect');
         $config = $config['actor'];
 
+        $type_list = model('Type')->getCache('type_list');
         $filter_arr = explode(',',$config['filter']);
         $pse_rnd = explode('#',$config['words']);
         $pse_syn = mac_txt_explain($config['thesaurus']);
@@ -1255,7 +1367,10 @@ class Collect extends Base {
             $msg='';
             $tmp='';
 
-            if(empty($v['actor_name']) || empty($v['actor_sex'])) {
+            if($v['type_id'] ==0){
+                $des = '分类未绑定，跳过err';
+            }
+            elseif(empty($v['actor_name']) || empty($v['actor_sex'])) {
                 $des = '数据不完整actor_name,actor_sex必须，跳过err';
             }
             elseif( mac_array_filter($filter_arr,$v['actor_name'])!==false) {
@@ -1269,7 +1384,8 @@ class Collect extends Base {
                         $v[$k2] = strip_tags($v2);
                     }
                 }
-
+                $v['actor_name'] = trim($v['actor_name']);
+                $v['type_id_1'] = intval($type_list[$v['type_id']]['type_pid']);
                 $v['actor_en'] = Pinyin::get($v['actor_name']);
                 $v['actor_letter'] = strtoupper(substr($v['actor_en'],0,1));
                 $v['actor_time_add'] = time();
@@ -1325,6 +1441,9 @@ class Collect extends Base {
                 $where['actor_name'] = $v['actor_name'];
                 if (strpos($config['inrule'], 'b')!==false) {
                     $where['actor_sex'] = $v['actor_sex'];
+                }
+                if (strpos($config['inrule'], 'c')!==false) {
+                    $where['type_id'] = $v['type_id'];
                 }
 
                 $info = model('Actor')->where($where)->find();
@@ -1443,7 +1562,6 @@ class Collect extends Base {
         }
     }
 
-
     public function role_json($param)
     {
         $url_param = [];
@@ -1465,7 +1583,8 @@ class Collect extends Base {
         else{
             $url .='&';
         }
-        $html = mac_curl_get($url) . base64_decode($param['param']);
+        $url .= http_build_query($url_param).base64_decode($param['param']);
+        $html = mac_curl_get($url);
         if(empty($html)){
             return ['code'=>1001, 'msg'=>'连接API资源库失败，通常为服务器网络不稳定或禁用了采集'];
         }
@@ -1601,6 +1720,7 @@ class Collect extends Base {
 
                 if($blend===false){
                     $vod_info = model('Vod')->where($where2)->find();
+
                 }
                 else{
                     $vod_info = model('Vod')->where($where2)
@@ -1616,7 +1736,7 @@ class Collect extends Base {
                 }
                 else {
                     $v['role_rid'] = $vod_info['vod_id'];
-
+                    $where['role_rid'] = $vod_info['vod_id'];
                     $info = model('Role')->where($where)->find();
                     if (!$info) {
                         $tmp = $this->syncImages($config['pic'], $v['role_pic'], 'role');
@@ -1715,6 +1835,290 @@ class Collect extends Base {
             } else {
                 if ($data['page']['page'] >= $data['page']['pagecount']) {
                     Cache::rm('collect_break_role');
+                    mac_echo("数据采集完成");
+                    unset($param['page']);
+                    $param['ac'] = 'list';
+                    $url = url('api') . '?' . http_build_query($param);
+                    mac_jump($url, $GLOBALS['config']['app']['collect_timespan']);
+                } else {
+                    $param['page'] = intval($data['page']['page']) + 1;
+                    $url = url('api') . '?' . http_build_query($param);
+                    mac_jump($url, $GLOBALS['config']['app']['collect_timespan']);
+                }
+            }
+        }
+    }
+
+    public function website_json($param)
+    {
+        $url_param = [];
+        $url_param['ac'] = $param['ac'];
+        $url_param['t'] = $param['t'];
+        $url_param['pg'] = is_numeric($param['page']) ? $param['page'] : '';
+        $url_param['h'] = $param['h'];
+        $url_param['ids'] = $param['ids'];
+        $url_param['wd'] = $param['wd'];
+
+        if($param['ac']!='list'){
+            $url_param['ac'] = 'detail';
+        }
+
+        $url = $param['cjurl'];
+        if(strpos($url,'?')===false){
+            $url .='?';
+        }
+        else{
+            $url .='&';
+        }
+        $url .= http_build_query($url_param).base64_decode($param['param']);
+        $html = mac_curl_get($url);
+        if(empty($html)){
+            return ['code'=>1001, 'msg'=>'连接API资源库失败，通常为服务器网络不稳定或禁用了采集'];
+        }
+
+        $json = json_decode($html,true);
+        if(!$json){
+            return ['code'=>1002, 'msg'=>'JSON格式不正确，不支持采集'];
+        }
+
+        $array_page = [];
+        $array_page['page'] = $json['page'];
+        $array_page['pagecount'] = $json['pagecount'];
+        $array_page['pagesize'] = $json['limit'];
+        $array_page['recordcount'] = $json['total'];
+        $array_page['url'] = $url;
+
+        $type_list = model('Type')->getCache('type_list');
+        $bind_list = config('bind');
+
+        $key = 0;
+        $array_data = [];
+        foreach($json['list'] as $key=>$v){
+            $array_data[$key] = $v;
+            $bind_key = $param['cjflag'] .'_'.$v['type_id'];
+            if($bind_list[$bind_key] >0){
+                $array_data[$key]['type_id'] = $bind_list[$bind_key];
+            }
+            else{
+                $array_data[$key]['type_id'] = 0;
+            }
+        }
+
+        $array_type = [];
+        $key=0;
+        //分类列表
+        if($param['ac'] == 'list'){
+            foreach($json['class'] as $k=>$v){
+                $array_type[$key]['type_id'] = $v['type_id'];
+                $array_type[$key]['type_name'] = $v['type_name'];
+                $key++;
+            }
+        }
+
+        $res = ['code'=>1, 'msg'=>'ok', 'page'=>$array_page, 'type'=>$array_type, 'data'=>$array_data ];
+        return $res;
+    }
+
+    public function website_data($param,$data,$show=1)
+    {
+        if($show==1) {
+            mac_echo('当前采集任务<strong class="green">' . $data['page']['page'] . '</strong>/<span class="green">' . $data['page']['pagecount'] . '</span>页 采集地址&nbsp;' . $data['page']['url'] . '');
+        }
+
+        $config = config('maccms.collect');
+        $config = $config['website'];
+
+        $type_list = model('Type')->getCache('type_list');
+        $filter_arr = explode(',',$config['filter']);
+        $pse_rnd = explode('#',$config['words']);
+        $pse_syn = mac_txt_explain($config['thesaurus']);
+
+        foreach($data['data'] as $k=>$v){
+
+            $color='red';
+            $des='';
+            $msg='';
+            $tmp='';
+
+            if($v['type_id'] ==0){
+                $des = '分类未绑定，跳过err';
+            }
+            elseif(empty($v['website_name'])) {
+                $des = '数据不完整website_name必须，跳过err';
+            }
+            elseif( mac_array_filter($filter_arr,$v['website_name'])!==false) {
+                $des = '数据在过滤单中，跳过err';
+            }
+            else {
+                unset($v['website_id']);
+
+                foreach($v as $k2=>$v2){
+                    if(strpos($k2,'_content')===false) {
+                        $v[$k2] = strip_tags($v2);
+                    }
+                }
+                $v['website_name'] = trim($v['website_name']);
+                $v['type_id_1'] = intval($type_list[$v['type_id']]['type_pid']);
+                $v['website_en'] = Pinyin::get($v['website_name']);
+                $v['website_letter'] = strtoupper(substr($v['website_en'],0,1));
+                $v['website_time_add'] = time();
+                $v['website_time'] = time();
+                $v['website_status'] = intval($config['status']);
+                $v['website_lock'] = intval($v['website_lock']);
+                if(!empty($v['website_status'])) {
+                    $v['website_status'] = intval($v['website_status']);
+                }
+                $v['website_level'] = intval($v['website_level']);
+                $v['website_hits'] = intval($v['website_hits']);
+                $v['website_hits_day'] = intval($v['website_hits_day']);
+                $v['website_hits_week'] = intval($v['website_hits_week']);
+                $v['website_hits_month'] = intval($v['website_hits_month']);
+
+                $v['website_up'] = intval($v['website_up']);
+                $v['website_down'] = intval($v['website_down']);
+
+                $v['website_score'] = floatval($v['website_score']);
+                $v['website_score_all'] = intval($v['website_score_all']);
+                $v['website_score_num'] = intval($v['website_score_num']);
+
+                if($config['hits_start']>0 && $config['hits_end']>0) {
+                    $v['website_hits'] = rand($config['hits_start'], $config['hits_end']);
+                    $v['website_hits_day'] = rand($config['hits_start'], $config['hits_end']);
+                    $v['website_hits_week'] = rand($config['hits_start'], $config['hits_end']);
+                    $v['website_hits_month'] = rand($config['hits_start'], $config['hits_end']);
+                }
+
+                if($config['updown_start']>0 && $config['updown_end']){
+                    $v['website_up'] = rand($config['updown_start'], $config['updown_end']);
+                    $v['website_down'] = rand($config['updown_start'], $config['updown_end']);
+                }
+
+                if($config['score']==1) {
+                    $v['website_score_num'] = rand(1, 1000);
+                    $v['website_score_all'] = $v['website_score_num'] * rand(1, 10);
+                    $v['website_score'] = round($v['website_score_all'] / $v['website_score_num'], 1);
+                }
+
+                if ($config['psernd'] == 1) {
+                    $v['website_content'] = mac_rep_pse_rnd($pse_rnd, $v['website_content']);
+                }
+                if ($config['psesyn'] == 1) {
+                    $v['website_content'] = mac_rep_pse_syn($pse_syn, $v['website_content']);
+                }
+
+                if(empty($v['website_blurb'])){
+                    $v['website_blurb'] = mac_substring( strip_tags($v['website_content']) ,100);
+                }
+
+                $where = [];
+                $where['website_name'] = $v['website_name'];
+
+                if (strpos($config['inrule'], 'b')!==false) {
+                    $where['type_id'] = $v['type_id'];
+                }
+
+                $info = model('Website')->where($where)->find();
+                if (!$info) {
+                    $tmp = $this->syncImages($config['pic'],$v['website_pic'],'website');
+                    $v['website_pic'] = $tmp['pic'];
+                    $msg = $tmp['msg'];
+                    $res = model('Website')->insert($v);
+                    if($res===false){
+
+                    }
+                    $color ='green';
+                    $des= '新加入库，成功。';
+                } else {
+
+                    if(empty($config['uprule'])){
+                        $des = '没有设置任何二次更新项目，跳过。';
+                    }
+                    elseif ($info['website_lock'] == 1) {
+                        $des = '数据已经锁定，跳过。';
+                    }
+                    else {
+                        unset($v['website_time_add']);
+                        $rc=true;
+                        if($rc){
+                            $update=[];
+
+                            if(strpos(','.$config['uprule'],'a')!==false && !empty($v['website_content']) && $v['website_content']!=$info['website_content']){
+                                $update['website_content'] = $v['website_content'];
+                            }
+                            if(strpos(','.$config['uprule'],'b')!==false && !empty($v['website_blurb']) && $v['website_blurb']!=$info['website_blurb']){
+                                $update['website_blurb'] = $v['website_blurb'];
+                            }
+                            if(strpos(','.$config['uprule'],'c')!==false && !empty($v['website_remarks']) && $v['website_remarks']!=$info['website_remarks']){
+                                $update['website_remarks'] = $v['website_remarks'];
+                            }
+                            if(strpos(','.$config['uprule'],'d')!==false && !empty($v['website_jumpurl']) && $v['website_jumpurl']!=$info['website_jumpurl']){
+                                $update['website_jumpurl'] = $v['website_jumpurl'];
+                            }
+                            if(strpos(','.$config['uprule'],'e')!==false && (substr($info["website_pic"], 0, 4) == "http" ||empty($info['website_pic']) ) && $v['website_pic']!=$info['website_pic'] ){
+                                $tmp = $this->syncImages($config['pic'],$v['website_pic'],'website');
+                                $update['website_pic'] =$tmp['pic'];
+                                $msg =$tmp['msg'];
+                            }
+
+                            if(count($update)>0){
+                                $update['website_time'] = time();
+                                $where = [];
+                                $where['website_id'] = $info['website_id'];
+                                $res = model('Website')->where($where)->update($update);
+                                $color = 'green';
+                                if($res===false){
+
+                                }
+                            }
+                            else{
+                                $des = '无需更新。';
+                            }
+                        }
+
+                    }
+                }
+            }
+            if($show==1) {
+                mac_echo( ($k + 1) . $v['website_name'] . "<font color=$color>" .$des .'</font>'. $msg . '');
+            }
+            else{
+                return ['code'=>($color=='red' ? 1001 : 1),'msg'=> $v['website_name'] .' '.$des ];
+            }
+        }
+
+        if(ENTRANCE=='api'){
+            Cache::rm('collect_break_website');
+            if ($data['page']['page'] < $data['page']['pagecount']) {
+                $param['page'] = intval($data['page']['page']) + 1;
+                $res = $this->actor($param);
+                if($res['code']>1){
+                    return $this->error($res['msg']);
+                }
+                $this->website_data($param,$res );
+            }
+            mac_echo("数据采集完成");
+            die;
+        }
+
+        if(empty($GLOBALS['config']['app']['collect_timespan'])){
+            $GLOBALS['config']['app']['collect_timespan'] = 3;
+        }
+
+        if($show==1) {
+            if ($param['ac'] == 'cjsel') {
+                Cache::rm('collect_break_website');
+                mac_echo("数据采集完成");
+                unset($param['ids']);
+                $param['ac'] = 'list';
+                $url = url('api') . '?' . http_build_query($param);
+                $ref = $_SERVER["HTTP_REFERER"];
+                if(!empty($ref)){
+                    $url = $ref;
+                }
+                mac_jump($url, $GLOBALS['config']['app']['collect_timespan']);
+            } else {
+                if ($data['page']['page'] >= $data['page']['pagecount']) {
+                    Cache::rm('collect_break_website');
                     mac_echo("数据采集完成");
                     unset($param['page']);
                     $param['ac'] = 'list';

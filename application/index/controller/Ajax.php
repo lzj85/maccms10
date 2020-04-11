@@ -25,7 +25,7 @@ class Ajax extends Base
         $limit = $this->_param['limit'];
         $page = $this->_param['page'];
         $type_id = $this->_param['tid'];
-        if( !in_array($mid,['1','2','3']) ) {
+        if( !in_array($mid,['1','2','3','8','9','11']) ) {
             return json(['code'=>1001,'msg'=>'参数错误']);
         }
         if( !in_array($limit,['10','20','30']) ) {
@@ -35,9 +35,7 @@ class Ajax extends Base
             $page =1;
         }
 
-
-        $mids = [1=>'vod',2=>'art',3=>'topic'];
-        $pre = $mids[$mid];
+        $pre = mac_get_mid_code($mid);
         $order= $pre.'_time desc';
         $where=[];
         $where[$pre.'_status'] = [ 'eq',1];
@@ -70,6 +68,15 @@ class Ajax extends Base
                 elseif($mid=='3'){
                     $v['detail_link'] = mac_url_topic_detail($v);
                 }
+                elseif($mid=='8'){
+                    $v['detail_link'] = mac_url_actor_detail($v);
+                }
+                elseif($mid=='9'){
+                    $v['detail_link'] = mac_url_role_detail($v);
+                }
+                elseif($mid=='11'){
+                    $v['detail_link'] = mac_url_website_detail($v);
+                }
                 $v[$pre.'_pic'] = mac_url_img($v[$pre.'_pic']);
                 $v[$pre.'_pic_thumb'] = mac_url_img($v[$pre.'_pic_thumb']);
                 $v[$pre.'_pic_slide'] = mac_url_img($v[$pre.'_pic_slide']);
@@ -82,12 +89,16 @@ class Ajax extends Base
     {
         $mid = $this->_param['mid'];
         $wd = $this->_param['wd'];
-        if( $wd=='' || !in_array($mid,['1','2','3','8','9']) ) {
+        $limit = intval($this->_param['limit']);
+
+        if( $wd=='' || !in_array($mid,['1','2','3','8','9','11']) ) {
             return json(['code'=>1001,'msg'=>'参数错误']);
         }
-        $mids = [1=>'vod',2=>'art',3=>'topic',8=>'actor',9=>'role'];
+        $mids = [1=>'vod',2=>'art',3=>'topic',8=>'actor',9=>'role',11=>'website'];
         $pre = $mids[$mid];
-
+        if($limit<1){
+            $limit = 20;
+        }
         $where = [];
         $where[$pre.'_name|'.$pre.'_en'] = ['like','%'.$wd.'%'];
         $order = $pre.'_id desc';
@@ -95,7 +106,7 @@ class Ajax extends Base
 
         $url = mac_url_search(['wd'=>'mac_wd'],$pre);
 
-        $res = model($pre)->listData($where,$order,1,20,0,$field);
+        $res = model($pre)->listData($where,$order,1,$limit,0,$field);
         if($res['code']==1) {
             foreach ($res['list'] as $k => $v) {
                 $res['list'][$k]['pic'] = mac_url_img($v['pic']);
@@ -139,11 +150,10 @@ class Ajax extends Base
         $id = $this->_param['id'];
         $mid = $this->_param['mid'];
         $type = $this->_param['type'];
-        if(empty($id) ||  !in_array($mid,['1','2','3','8','9']) ) {
+        if(empty($id) ||  !in_array($mid,['1','2','3','8','9','11']) ) {
             return json(['code'=>1001,'msg'=>'参数错误']);
         }
-        $mids = [1=>'vod',2=>'art',3=>'topic',8=>'actor',9=>'role'];
-        $pre = $mids[$mid];
+        $pre = mac_get_mid_code($mid);
         $where = [];
         $where[$pre.'_id'] = $id;
         $field = $pre.'_hits,'.$pre.'_hits_day,'.$pre.'_hits_week,'.$pre.'_hits_month,'.$pre.'_time_hits';
@@ -202,18 +212,99 @@ class Ajax extends Base
         return json(['code'=>1,'msg'=>'操作成功！','data'=>$data]);
     }
 
+    public function referer()
+    {
+        $url = $this->_param['url'];
+        $type = $this->_param['type'];
+        $domain = $this->_param['domain'];
+
+        if(empty($url)) {
+            return json(['code'=>1001,'msg'=>'参数错误']);
+        }
+
+        if(strpos($_SERVER["HTTP_REFERER"],$_SERVER['HTTP_HOST'])===false){
+            return json(['code'=>1002,'msg'=>'参数错误']);
+        }
+
+        if(strpos($url,$domain)===false){
+            return json(['code'=>1003,'msg'=>'参数错误']);
+        }
+
+        $pre = 'website';
+        $where=[];
+        $where[$pre.'_jumpurl'] =  ['like', ['http://'.$domain.'%','https://'.$domain.'%'],'OR'];
+        $model = model($pre);
+        $field = $pre.'_referer,'.$pre.'_referer_day,'.$pre.'_referer_week,'.$pre.'_referer_month,'.$pre.'_time_referer';
+        $res = $model->infoData($where,$field);
+        if($res['code']>1){
+            return json($res);
+        }
+        $info = $res['info'];
+        $id = $info[$pre.'_id'];
+
+        //来路访问记录验证
+        $res = model('Website')->visit($this->_param);
+        if($res['code']>1){
+            return json($res);
+        }
+
+        if($type == 'update'){
+            //初始化值
+            $update[$pre.'_referer'] = $info[$pre.'_referer'];
+            $update[$pre.'_referer_day'] = $info[$pre.'_referer_day'];
+            $update[$pre.'_referer_week'] = $info[$pre.'_referer_week'];
+            $update[$pre.'_referer_month'] = $info[$pre.'_referer_month'];
+            $new = getdate();
+            $old = getdate($info[$pre.'_time_referer']);
+            //月
+            if($new['year'] == $old['year'] && $new['mon'] == $old['mon']){
+                $update[$pre.'_referer_month'] ++;
+            }else{
+                $update[$pre.'_referer_month'] = 1;
+            }
+            //周
+            $weekStart = mktime(0,0,0,$new["mon"],$new["mday"],$new["year"]) - ($new["wday"] * 86400);
+            $weekEnd = mktime(23,59,59,$new["mon"],$new["mday"],$new["year"]) + ((6 - $new["wday"]) * 86400);
+            if($info[$pre.'_time_referer'] >= $weekStart && $info[$pre.'_time_referer'] <= $weekEnd){
+                $update[$pre.'_referer_week'] ++;
+            }else{
+                $update[$pre.'_referer_week'] = 1;
+            }
+            //日
+            if($new['year'] == $old['year'] && $new['mon'] == $old['mon'] && $new['mday'] == $old['mday']){
+                $update[$pre.'_referer_day'] ++;
+            }else{
+                $update[$pre.'_referer_day'] = 1;
+            }
+            //更新数据库
+            $update[$pre.'_referer'] = $update[$pre.'_referer']+1;
+            $update[$pre.'_time_referer'] = time();
+            $model->where($where)->update($update);
+
+            $data['referer'] = $update[$pre.'_referer'];
+            $data['referer_day'] = $update[$pre.'_referer_day'];
+            $data['referer_week'] = $update[$pre.'_referer_week'];
+            $data['referer_month'] = $update[$pre.'_referer_month'];
+        }
+        else{
+            $data['referer'] = $info[$pre.'_referer'];
+            $data['referer_day'] = $info[$pre.'_referer_day'];
+            $data['referer_week'] = $info[$pre.'_referer_week'];
+            $data['referer_month'] = $info[$pre.'_referer_month'];
+        }
+        return json(['code'=>1,'msg'=>'操作成功！','data'=>$data]);
+    }
+
     public function digg()
     {
         $id = $this->_param['id'];
         $mid = $this->_param['mid'];
         $type = $this->_param['type'];
 
-        if(empty($id) ||  !in_array($mid,['1','2','3','4','8','9']) ) {
+        if(empty($id) ||  !in_array($mid,['1','2','3','4','8','9','11']) ) {
             return json(['code'=>1001,'msg'=>'参数错误']);
         }
-
-        $mids = [1=>'vod',2=>'art',3=>'topic',4=>'comment',8=>'actor',9=>'role'];
-        $pre = $mids[$mid];
+        $pre = mac_get_mid_code($mid);
         $where = [];
         $where[$pre.'_id'] = $id;
         $field = $pre.'_up,'.$pre.'_down';
@@ -255,12 +346,11 @@ class Ajax extends Base
         $mid = $this->_param['mid'];
         $score = $this->_param['score'];
 
-        if(empty($id) ||  !in_array($mid,['1','2','3','8','9']) ) {
+        if(empty($id) ||  !in_array($mid,['1','2','3','8','9','11']) ) {
             return json(['code'=>1001,'msg'=>'参数错误']);
         }
 
-        $mids = [1=>'vod',2=>'art',3=>'topic',8=>'actor',9=>'role'];
-        $pre = $mids[$mid];
+        $pre = mac_get_mid_code($mid);
         $where = [];
         $where[$pre.'_id'] = $id;
         $field = $pre.'_score,'.$pre.'_score_num,'.$pre.'_score_all';

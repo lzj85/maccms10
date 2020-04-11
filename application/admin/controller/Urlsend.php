@@ -174,6 +174,24 @@ class Urlsend extends Base
                 $fun = 'mac_url_role_detail';
                 $res = model('Role')->listData($where,$order,$this->_param['page'],$this->_param['limit']);
                 break;
+            case 11:
+                $where['website_status'] = ['eq',1];
+
+                if($ac2=='today'){
+                    $where['website_time_add'] = ['gt',$today];
+
+                }
+                if(!empty($ids)){
+                    $where['website_id'] = ['in',$ids];
+                }
+                elseif(!empty($data)){
+                    $where['website_id'] = ['gt', $data];
+                }
+                $col = 'website';
+                $order = 'website_id asc';
+                $fun = 'mac_url_website_detail';
+                $res = model('Website')->listData($where,$order,$this->_param['page'],$this->_param['limit']);
+                break;
         }
 
         if(empty($res['list'])){
@@ -230,11 +248,15 @@ class Urlsend extends Base
             Cache::rm('urlsend_break_baidu_push');
 
             mac_echo('数据推送完毕');
-            mac_jump(url('urlsend/index'), 3);
+            if(ENTRANCE=='admin') {
+                mac_jump(url('urlsend/index'), 3);
+            }
         }
         else {
             $url = url('urlsend/baidu_push') . '?' . http_build_query($this->_param);
-            mac_jump($url, 3);
+            if(ENTRANCE=='admin') {
+                mac_jump($url, 3);
+            }
         }
 
     }
@@ -299,12 +321,15 @@ class Urlsend extends Base
         if ($res['page'] >= $res['pagecount']) {
             Cache::rm('urlsend_break_baidu_bear');
             mac_echo('数据推送完毕');
-            mac_jump(url('urlsend/index'), 3);
+            if(ENTRANCE=='admin') {
+                mac_jump(url('urlsend/index'), 3);
+            }
         }
         else {
-
             $url = url('urlsend/baidu_bear') . '?' . http_build_query($this->_param);
-            mac_jump($url, 3);
+            if(ENTRANCE=='admin') {
+                mac_jump($url, 3);
+            }
         }
     }
 

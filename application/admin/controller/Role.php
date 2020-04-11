@@ -23,6 +23,9 @@ class Role extends Base
         if (in_array($param['status'], ['0', '1'])) {
             $where['role_status'] = ['eq', $param['status']];
         }
+        if (!empty($param['rid'])) {
+            $where['role_rid'] = ['eq', $param['rid']];
+        }
         if(!empty($param['pic'])){
             if($param['pic'] == '1'){
                 $where['role_pic'] = ['eq',''];
@@ -35,7 +38,7 @@ class Role extends Base
             }
         }
         if(!empty($param['wd'])){
-            $param['wd'] = urldecode($param['wd']);
+            $param['wd'] = htmlspecialchars(urldecode($param['wd']));
             $where['role_name'] = ['like','%'.$param['wd'].'%'];
         }
 
@@ -60,7 +63,6 @@ class Role extends Base
     {
         if (Request()->isPost()) {
             $param = input('post.');
-            $param['role_content'] = str_replace( $GLOBALS['config']['upload']['protocol'].':','mac:',$param['role_content']);
             $res = model('Role')->saveData($param);
             if($res['code']>1){
                 return $this->error($res['msg']);

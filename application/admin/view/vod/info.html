@@ -11,6 +11,7 @@
             <ul class="layui-tab-title ">
                 <li class="layui-this">基本信息</a></li>
                 <li>其他信息</li>
+                <li>剧情信息</li>
                 {notempty name="info.vod_id"}
                 <li>角色信息</li>
                 {/notempty}
@@ -303,6 +304,7 @@
                     <script>
                         var players_arr_len = {$vod_play_list|count};
                         var downers_arr_len = {$vod_down_list|count};
+                        var plot_arr_len = {$vod_plot_list|count};
                     </script>
 
                     <div id="player_list" class="contents">
@@ -378,6 +380,10 @@
                             <div class="layui-input-inline ">
                                 <input type="text" class="layui-input" value="{$info.vod_hits_month}" placeholder="" id="vod_hits_month" name="vod_hits_month" >
                             </div>
+                            <label class="layui-form-label">编辑人：</label>
+                            <div class="layui-input-inline ">
+                                <input type="text" class="layui-input" value="{$info.vod_author}" placeholder="" name="vod_author" id="vod_author">
+                            </div>
                         </div>
 
                         <div class="layui-form-item">
@@ -388,6 +394,10 @@
                             <label class="layui-form-label">日人气：</label>
                             <div class="layui-input-inline ">
                                 <input type="text" class="layui-input " value="{$info.vod_hits_day}" placeholder="" id="vod_hits_day" name="vod_hits_day">
+                            </div>
+                            <label class="layui-form-label">跳转URL：</label>
+                            <div class="layui-input-inline ">
+                                <input type="text" class="layui-input" value="{$info.vod_jumpurl}" placeholder="" name="vod_jumpurl" id="vod_jumpurl">
                             </div>
                         </div>
 
@@ -423,17 +433,18 @@
                         </div>
 
                         <div class="layui-form-item">
-                            <label class="layui-form-label">编辑人：</label>
-                            <div class="layui-input-inline ">
-                                <input type="text" class="layui-input" value="{$info.vod_author}" placeholder="" name="vod_author" id="vod_author">
-                            </div>
-                            <label class="layui-form-label">独立模板：</label>
+
+                            <label class="layui-form-label">内容页模板：</label>
                             <div class="layui-input-inline ">
                                 <input type="text" class="layui-input" value="{$info.vod_tpl}" placeholder="" name="vod_tpl">
                             </div>
-                            <label class="layui-form-label">跳转URL：</label>
+                            <label class="layui-form-label">播放页模板：</label>
                             <div class="layui-input-inline ">
-                                <input type="text" class="layui-input" value="{$info.vod_jumpurl}" placeholder="" name="vod_jumpurl" id="vod_jumpurl">
+                                <input type="text" class="layui-input" value="{$info.vod_tpl_play}" placeholder="" name="vod_tpl_play">
+                            </div>
+                            <label class="layui-form-label">下载页模板：</label>
+                            <div class="layui-input-inline ">
+                                <input type="text" class="layui-input" value="{$info.vod_tpl_down}" placeholder="" name="vod_tpl_down">
                             </div>
                         </div>
                         <div class="layui-form-item">
@@ -470,6 +481,26 @@
                     </div>
 
                 <div class="layui-tab-item">
+                    <div id="plot_list" class="contents">
+                        {volist name="$vod_plot_list" id="vo"}
+                        <div class="layui-form-item" data-i="{$key}">
+                            <label class="layui-form-label">剧情{$key}：</label>
+                            <div class="layui-input-inline w500"><input type="text" name="vod_plot_name[]" class="layui-input" value="{$vo.name}" placeholder="剧情标题"></div>
+                            <div class="layui-input-inline w400 p10"><a href="javascript:void(0)" class="j-editor-clear">清空</a>&nbsp;<a href="javascript:void(0)" class="j-editor-remove">删除</a>&nbsp;<a href="javascript:void(0)" class="j-editor-up">上移</a>&nbsp;<a href="javascript:void(0)" class="j-editor-down">下移</a><br></div>
+                            <div class="p10 m20"> </div>
+                            <div class="layui-input-block "><textarea id="vod_plot_detail{$key}" name="vod_plot_detail[]" type="text/plain" style="width:100%;height:150px">{$vo.detail|mac_str_correct=###,'#',chr(13)}</textarea></div>
+                        </div>
+                        {/volist}
+                    </div>
+                    <div class="layui-form-item">
+                        <label class=""><button class="layui-btn radius j-plot-add" type="button">添加一集剧情</button></label>
+                        <div class="layui-input-block">
+
+                        </div>
+                    </div>
+                </div>
+
+                <div class="layui-tab-item">
                     <div class="layui-form-item">
                         <label class="layui-form-label">采集网址：</label>
                         <div class="layui-input-inline w500">
@@ -482,6 +513,8 @@
                     <iframe src="{:url('role/data')}?select=1&tab=vod&rid={$info.vod_id}" marginwidth="0" marginheight="0" style="width:100%;height:600px;"></iframe>
                     {/notempty}
                 </div>
+
+
             </div>
         </div>
 
@@ -582,7 +615,7 @@
                 if (txt != '') {
                     txt += "\r\n";
                 }
-                $(obj).parent().parent().find('textarea').val(txt + res.data.file);
+                $(obj).parent().parent().find('textarea').val(txt + ROOT_PATH + "/" + res.data.file);
             }
         });
 
@@ -607,7 +640,8 @@
                         if (txt != '') {
                             txt += "\r\n";
                         }
-                        $(obj).parent().parent().find('textarea').val(txt + res.data.file);
+
+                        $(obj).parent().parent().find('textarea').val(txt + ROOT_PATH + "/" +res.data.file);
                     }
                 });
             });
@@ -853,6 +887,11 @@
 
             form.render('select');
             initUpload('down');
+        });
+        $('.j-plot-add').on('click',function(){
+            plot_arr_len++;
+            var tpl='<div class="layui-form-item" data-i="'+plot_arr_len+'"><label class="layui-form-label">剧情'+(plot_arr_len)+'：</label><div class="layui-input-inline w500"><input type="text" name="vod_plot_name[]" class="layui-input" placeholder="剧情标题"></div><div class="layui-input-inline w400 p10"><a href="javascript:void(0)" class="j-editor-clear">清空</a>&nbsp;<a href="javascript:void(0)" class="j-editor-remove">删除</a>&nbsp;<a href="javascript:void(0)" class="j-editor-up">上移</a>&nbsp;<a href="javascript:void(0)" class="j-editor-down">下移</a>&nbsp;</div><div class="p10 m20"></div><div class="layui-input-block"><textarea id="vod_content'+(plot_arr_len)+'" name="vod_plot_detail[]" class="layui-textarea" style="width:99%;height:250px"></textarea></div></div>';
+            $("#plot_list").append(tpl);
         });
 
         if(players_arr_len==0 && downers_arr_len==0) {

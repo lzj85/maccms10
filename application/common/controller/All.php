@@ -8,6 +8,8 @@ class All extends Controller
     var $_ref;
     var $_cl;
     var $_ac;
+    var $_tsp;
+    var $_url;
 
     public function __construct()
     {
@@ -15,23 +17,29 @@ class All extends Controller
         $this->_ref = mac_get_refer();
         $this->_cl = request()->controller();
         $this->_ac = request()->action();
+        $this->_tsp = date('Ymd');
     }
 
-    protected function load_page_cache($tpl)
+    protected function load_page_cache($tpl,$type='html')
     {
         if(defined('ENTRANCE') && ENTRANCE == 'index' && $GLOBALS['config']['app']['cache_page'] ==1  && $GLOBALS['config']['app']['cache_time_page'] ) {
             $cach_name = MAC_MOB . '_'. $GLOBALS['config']['app']['cache_flag']. '_' .$tpl .'_'. http_build_query(mac_param_url());
             $res = Cache::get($cach_name);
             if ($res) {
+                if($type=='json'){
+                    $res = json_encode($res);
+                }
                 echo $res;
                 die;
             }
         }
     }
 
-    protected function label_fetch($tpl)
+    protected function label_fetch($tpl,$loadcache=1,$type='html')
     {
-        $this->load_page_cache($tpl);
+        if($loadcache==1){
+            $this->load_page_cache($tpl,$type);
+        }
 
         $html = $this->fetch($tpl);
         if($GLOBALS['config']['app']['compress'] == 1){
@@ -65,6 +73,9 @@ class All extends Controller
         $maccms['actor_extend_area'] = $GLOBALS['config']['app']['actor_extend_area'];
 
         $maccms['http_type'] = $GLOBALS['http_type'];
+        $maccms['http_url'] = $GLOBALS['http_type']. ''.$_SERVER['SERVER_NAME'].($_SERVER["SERVER_PORT"]==80 ? '' : ':'.$_SERVER["SERVER_PORT"]).$_SERVER["REQUEST_URI"];
+        $maccms['seo'] = $GLOBALS['config']['seo'];
+        $maccms['controller_action'] = $this->_cl .'/'.$this->_ac;
 
         if(!empty($GLOBALS['mid'])) {
             $maccms['mid'] = $GLOBALS['mid'];
@@ -91,10 +102,15 @@ class All extends Controller
         $user_check = cookie('user_check');
 
         $user = ['user_id'=>0,'user_name'=>'游客','user_portrait'=>'static/images/touxiang.png','group_id'=>1,'points'=>0];
-        if(!empty($user_id) || !empty($user_name) || !empty($user_check)){
+        if(!empty($user_id) && !empty($user_name) && !empty($user_check)){
             $res = model('User')->checkLogin();
             if($res['code'] == 1){
                 $user = $res['info'];
+            }
+            else{
+                cookie('user_id','0');
+                cookie('user_name','游客');
+                cookie('user_check','');
             }
         }
         else{
@@ -137,7 +153,7 @@ class All extends Controller
         $this->assign('param',$param);
     }
 
-    protected function label_actor_detail($info=[])
+    protected function label_actor_detail($info=[],$view=0)
     {
         $param = mac_param_url();
         $this->assign('param',$param);
@@ -148,6 +164,28 @@ class All extends Controller
             }
             $info = $res['info'];
         }
+
+        if(empty($info['actor_tpl'])){
+            $info['actor_tpl'] = $info['type']['type_tpl_detail'];
+        }
+
+        if($view <2) {
+            $popedom = $this->check_user_popedom($info['type_id'], 2,$param,'actor',$info);
+            $this->assign('popedom',$popedom);
+
+            if($popedom['code']>1){
+                $this->assign('obj',$info);
+
+                if($popedom['confirm']==1){
+                    echo $this->fetch('actor/confirm');
+                    exit;
+                }
+
+                echo $this->error($popedom['msg'], mac_url('user/index') );
+                exit;
+            }
+        }
+
         $this->assign('obj',$info);
         $comment = config('maccms.comment');
         $this->assign('comment',$comment);
@@ -172,6 +210,46 @@ class All extends Controller
             }
             $info = $res['info'];
         }
+        $this->assign('obj',$info);
+        $comment = config('maccms.comment');
+        $this->assign('comment',$comment);
+
+        return $info;
+    }
+
+    protected function label_website_detail($info=[],$view=0)
+    {
+        $param = mac_param_url();
+        $this->assign('param',$param);
+        if(empty($info)) {
+            $res = mac_label_website_detail($param);
+            if ($res['code'] > 1) {
+                return $this->error($res['msg']);
+            }
+            $info = $res['info'];
+        }
+
+        if(empty($info['website_tpl'])){
+            $info['website_tpl'] = $info['type']['type_tpl_detail'];
+        }
+
+        if($view <2) {
+            $popedom = $this->check_user_popedom($info['type_id'], 2,$param,'website',$info);
+            $this->assign('popedom',$popedom);
+
+            if($popedom['code']>1){
+                $this->assign('obj',$info);
+
+                if($popedom['confirm']==1){
+                    echo $this->fetch('website/confirm');
+                    exit;
+                }
+
+                echo $this->error($popedom['msg'], mac_url('user/index') );
+                exit;
+            }
+        }
+
         $this->assign('obj',$info);
         $comment = config('maccms.comment');
         $this->assign('comment',$comment);
@@ -422,7 +500,7 @@ class All extends Controller
         }
         else {
             $this->assign('player_data', '<script type="text/javascript">var player_data=' . json_encode($player_info) . '</script>');
-            $this->assign('player_js', '<script type="text/javascript" src="' . MAC_PATH . 'static/js/playerconfig.js"></script><script type="text/javascript" src="' . MAC_PATH . 'static/js/player.js"></script>');
+            $this->assign('player_js', '<script type="text/javascript" src="' . MAC_PATH . 'static/js/playerconfig.js?t='.$this->_tsp.'"></script><script type="text/javascript" src="' . MAC_PATH . 'static/js/player.js?t='.$this->_tsp.'"></script>');
         }
         $this->label_comment();
         return $info;
